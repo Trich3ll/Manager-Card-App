@@ -3,125 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manager Barcode Generator (EAN13)</title>
-    <!-- Load free CDN libraries -->
+    <title>EAN-13 Manager Card Generator</title>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Link to the JavaScript file -->
-    <script src="barcodeGenerator.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
             max-width: 600px;
             margin: 20px auto;
-            background-color: #f0f0f0;
-        }
-        #barcodeForm {
-            background-color: #fff;
             padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
-        label, input {
+        .input-group {
+            margin: 10px 0;
+        }
+        label {
             display: block;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
         input {
             padding: 5px;
-            width: 150px;
+            width: 200px;
         }
         button {
+            padding: 10px 20px;
             margin: 5px;
-            padding: 5px 10px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #badge {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
-            padding: 20px;
-            border: 1px solid #000;
-            width: 300px;
-            background-color: #fff;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            margin-left: auto;
-            margin-right: auto;
         }
         #barcode {
-            margin-bottom: 10px;
+            margin: 20px 0;
         }
     </style>
 </head>
 <body>
-    <div id="barcodeForm">
-        <h1>Manager Barcode Generator (EAN13)</h1>
-        <form id="barcodeForm">
-            <label for="storeNumber">GSP Store Number (4 digits):</label>
-            <input type="text" id="storeNumber" maxlength="4" required autocomplete="off"><br><br>
-            
-            <label for="managerNumber">Manager Number (4 digits):</label>
-            <input type="text" id="managerNumber" maxlength="4" required autocomplete="off"><br><br>
-            
-            <label for="managerName">Manager Name:</label>
-            <input type="text" id="managerName" required><br><br>
-            
-            <button type="submit">Generate Barcode</button>
-        </form>
+    <h1>Manager Card Barcode Generator</h1>
+    
+    <div class="input-group">
+        <label for="storeNum">Store Number (4 digits):</label>
+        <input type="number" id="storeNum" maxlength="4" placeholder="e.g., 1234">
     </div>
     
-    <div id="badge">
-        <h2>Manager Badge</h2>
-        <svg id="barcode"></svg>
-        <p id="managerText"></p>
-        <button onclick="printBadge()">Print Badge</button>
-        <button onclick="downloadPDF()">Download as PDF</button>
+    <div class="input-group">
+        <label for="managerNum">Manager Number (4 digits):</label>
+        <input type="number" id="managerNum" maxlength="4" placeholder="e.g., 5678">
     </div>
-</body>
-</html>  
-            // Get form inputs
-            const storeNumber = document.getElementById('storeNumber').value;
-            const managerNumber = document.getElementById('managerNumber').value;
-            const managerName = document.getElementById('managerName').value;
-            
+    
+    <button onclick="generateBarcode()">Generate Barcode</button>
+    <button onclick="saveAsPDF()" id="saveBtn" disabled>Save as PDF</button>
+    <button onclick="printBarcode()" id="printBtn" disabled>Print</button>
+    
+    <div id="barcode">
+        <svg id="barcodeSvg"></svg>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+
+        function calculateCheckDigit(code) {
+            // Ensure we only use the first 12 digits
+            const digits = code.substring(0, 12);
+            let sum = 0;
+            for (let i = 0; i < 12; i++) {
+                const digit = parseInt(digits[i]);
+                // In EAN-13, odd positions (0-based) multiply by 1, even by 3
+                // This corresponds to positions 1-12 in standard numbering
+                sum += (i % 2 === 0) ? digit : digit * 3;
+            }
+            const checkDigit = (10 - (sum % 10)) % 10;
+            return checkDigit;
+        }
+
+        function generateBarcode() {
+            const storeNum = document.getElementById('storeNum').value.padStart(4, '0');
+            const managerNum = document.getElementById('managerNum').value.padStart(4, '0');
+
             // Validate inputs
-            if (!/^\d{4}$/.test(storeNumber) || !/^\d{4}$/.test(managerNumber)) {
-                alert('Store and Manager numbers must be exactly 4 digits.');
+            if (storeNum.length !== 4 || managerNum.length !== 4 || isNaN(storeNum) || isNaN(managerNum)) {
+                alert('Please enter valid 4-digit numbers for both Store and Manager numbers.');
                 return;
             }
-            
-            // Construct the 13-digit EAN13 barcode value
-            const barcodeValue = '8888' + storeNumber + '0' + managerNumber; // e.g., "8888999909991"
-            
-            // Generate the EAN13 barcode
-            JsBarcode("#barcode", barcodeValue, {
-                format: "EAN13",
-                width: 2,
-                height: 100,
-                displayValue: true
-            });
-            
-            // Display the badge details
-            document.getElementById('managerText').innerText = 
-                `Manager: ${managerName}\nStore: ${storeNumber}\nManager ID: ${managerNumber}`;
-            document.getElementById('badge').style.display = 'block';
-        });
-        
-        // Print function
-        function printBadge() {
-            window.print();
+
+            // Construct the first 12 digits: 8888 + storeNum + managerNum
+            const baseCode = `8888${storeNum}${managerNum}`;
+
+            // Calculate the check digit based on the first 12 digits
+            const checkDigit = calculateCheckDigit(baseCode);
+
+            // Construct the final 13-digit EAN-13 code
+            const barcodeValue = baseCode + checkDigit;
+
+            // Generate barcode
+            try {
+                JsBarcode("#barcodeSvg", barcodeValue, {
+                    format: "EAN13",
+                    width: 2,
+                    height: 50,
+                    displayValue: true
+                });
+                // Enable buttons
+                document.getElementById('saveBtn').disabled = false;
+                document.getElementById('printBtn').disabled = false;
+            } catch (error) {
+                alert('Error generating barcode: ' + error.message);
+            }
         }
-        
-        // Download as PDF function
-        function downloadPDF() {
-            const element = document.getElementById('badge');
-            html2pdf().from(element).save('manager_badge.pdf');
+
+        function saveAsPDF() {
+            const doc = new jsPDF();
+            const svg = document.getElementById('barcodeSvg');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const img = new Image();
+
+            canvas.width = 200;
+            canvas.height = 100;
+
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0, 200, 100);
+                const imgData = canvas.toDataURL('image/png');
+                doc.addImage(imgData, 'PNG', 10, 10, 190, 50);
+                doc.save('manager_card_barcode.pdf');
+            };
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        }
+
+        function printBarcode() {
+            const printWindow = window.open('', '_blank');
+            const svg = document.getElementById('barcodeSvg').outerHTML;
+            printWindow.document.write(`
+                <html>
+                <body onload="window.print(); window.close();">
+                    ${svg}
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
         }
     </script>
 </body>
