@@ -1,0 +1,129 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Barcode Generator (EAN13)</title>
+    <!-- Load free CDN libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #f0f0f0;
+        }
+        #barcodeForm {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        label, input {
+            display: block;
+            margin-bottom: 10px;
+        }
+        input {
+            padding: 5px;
+            width: 150px;
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #badge {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #000;
+            width: 300px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-left: auto;
+            margin-right: auto;
+        }
+        #barcode {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="barcodeForm">
+        <h1>Manager Barcode Generator (EAN13)</h1>
+        <form id="form">
+            <label for="storeNumber">GSP Store Number (4 digits):</label>
+            <input type="text" id="storeNumber" maxlength="4" required><br><br>
+            
+            <label for="managerNumber">Manager Number (4 digits):</label>
+            <input type="text" id="managerNumber" maxlength="4" required><br><br>
+            
+            <label for="managerName">Manager Name:</label>
+            <input type="text" id="managerName" required><br><br>
+            
+            <button type="submit">Generate Barcode</button>
+        </form>
+    </div>
+    
+    <div id="badge">
+        <h2>Manager Badge</h2>
+        <svg id="barcode"></svg>
+        <p id="managerText"></p>
+        <button onclick="printBadge()">Print Badge</button>
+        <button onclick="downloadPDF()">Download as PDF</button>
+    </div>
+    
+    <script>
+        document.getElementById('form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            // Get form inputs
+            const storeNumber = document.getElementById('storeNumber').value;
+            const managerNumber = document.getElementById('managerNumber').value;
+            const managerName = document.getElementById('managerName').value;
+            
+            // Validate inputs
+            if (!/^\d{4}$/.test(storeNumber) || !/^\d{4}$/.test(managerNumber)) {
+                alert('Store and Manager numbers must be exactly 4 digits.');
+                return;
+            }
+            
+            // Construct the 13-digit EAN13 barcode value
+            const barcodeValue = '8888' + storeNumber + '0' + managerNumber; // e.g., "8888999909991"
+            
+            // Generate the EAN13 barcode
+            JsBarcode("#barcode", barcodeValue, {
+                format: "EAN13",
+                width: 2,
+                height: 100,
+                displayValue: true
+            });
+            
+            // Display the badge details
+            document.getElementById('managerText').innerText = 
+                `Manager: ${managerName}\nStore: ${storeNumber}\nManager ID: ${managerNumber}`;
+            document.getElementById('badge').style.display = 'block';
+        });
+        
+        // Print function
+        function printBadge() {
+            window.print();
+        }
+        
+        // Download as PDF function
+        function downloadPDF() {
+            const element = document.getElementById('badge');
+            html2pdf().from(element).save('manager_badge.pdf');
+        }
+    </script>
+</body>
+</html>
